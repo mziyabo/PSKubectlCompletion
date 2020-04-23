@@ -12,7 +12,7 @@
 RootModule = 'PSKubectlCompletion.psm1'
 
 # Version number of this module.
-ModuleVersion = '0.0.1'
+ModuleVersion = '1.0.1'
 
 # Supported PSEditions
 # CompatiblePSEditions = @()
@@ -30,10 +30,10 @@ CompanyName = ''
 Copyright = '(c) mziyabo. All rights reserved.'
 
 # Description of the functionality provided by this module
-Description = 'PowerShell Core kubectl auto-completion'
+Description = 'PowerShell auto-completion for kubectl'
 
 # Minimum version of the PowerShell engine required by this module
-PowerShellVersion = '6.0'
+PowerShellVersion = '5.1'
 
 # Name of the PowerShell host required by this module
 # PowerShellHostName = ''
@@ -95,7 +95,7 @@ PrivateData = @{
     PSData = @{
 
         # Tags applied to this module. These help with module discovery in online galleries.
-         Tags = @('kubectl','auto-completion','Kubernetes')
+         Tags = @('kubectl','auto-completion','Kubernetes', 'PSKubectlCompletion')
 
         # A URL to the license for this module.
         # LicenseUri = ''
@@ -129,4 +129,3 @@ PrivateData = @{
 # DefaultCommandPrefix = ''
 
 }
-
