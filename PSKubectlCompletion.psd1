@@ -30,7 +30,7 @@ CompanyName = ''
 Copyright = '(c) mziyabo. All rights reserved.'
 
 # Description of the functionality provided by this module
-Description = 'PowerShell auto-completion for kubectl'
+Description = 'Kubectl auto-completion for PowerShell'
 
 # Minimum version of the PowerShell engine required by this module
 PowerShellVersion = '5.1'

@@ -1,7 +1,7 @@
 
 <#PSScriptInfo
 
-.VERSION 0.0.1
+.VERSION 0.0.2
 
 .GUID b6f70c64-13aa-4408-a83f-cebf800df2b4
 
@@ -42,62 +42,48 @@ function Register-KubectlCompletion {
 
     [scriptblock]$GetCompletions = {
         param($wordToComplete, $commandAst, $cursorPosition)
+             
+        $commandElements = $commandAst.CommandElements | ForEach-Object { $_.Extent.ToString().Split('=')[0] };
+        $lastCommand = Get-LastCommand($commandAst.ToString());        
+        $commands = Get-Commands($commandAst.ToString());
         
-        $parameterName = $commandAst.ToString();
-        $lastCommand = Get-LastCommand($parameterName);
-        $wordToComplete = Get-WordToComplete($parameterName);
-        $parameters = Get-Parameters($parameterName);
-
         $script:cmdLn = @{
-            LastCommand   = $lastCommand;
-            ParameterName = $parameterName;
-            Parameters    = $parameters
+            Commands       = $commands;
+            WordToComplete = $wordToComplete
         };
-
-        $len = $parameters.Count;
         
-        if ($len -gt 2) {
+        if ($commands.Count -gt 2) {
+            
             $matches = (Get-AvailableOptions($lastCommand)).Where( { $_ -like "$wordToComplete*" });
 
-            if ($matches.Count -eq 1 ) {
-                if ($matches[0] -eq $wordToComplete) {
-                    return Get-AvailableOptions($lastCommand) |
-                    Where-Object { $_ -notin $parameters } |
-                    ForEach-Object { $_ };
-                }
-                
-                return $matches |
-                Where-Object { ($_.StartsWith($wordToComplete) -and !($parameters.Contains($_) -or $parameters.Contains($_.Replace("=", "")))) } |
-                ForEach-Object { $_ };
-            }
-            elseif ($matches.Count -gt 1) {
-
-                return $matches |
-                Where-Object { ($_.StartsWith($wordToComplete) -and !($parameters.Contains($_) -or $parameters.Contains($_.Replace("=", "")))) } |
+            if ($matches.Count -eq 0) {
+             
+                return Get-AvailableOptions($lastCommand) |
+                Where-Object { $_ -notin $commandElements } |
                 ForEach-Object { $_ };
             }
             else {
-                return Get-AvailableOptions($lastCommand) |
-                Where-Object { $_ -notin $parameters } |
+                return $matches |
+                Where-Object { $_.StartsWith($wordToComplete) -and $_.Split("=")[0] -notin $commandElements } |
                 ForEach-Object { $_ };
-            }
+                return $completionResults;
+            }    
         }
         else {  
             
-            [string[]]$result = (Get-RootCompletionOptions);
+            [string[]]$result = Get-RootCompletionOptions;
             
             if ($wordToComplete -eq [string]::Empty -and $lastCommand -eq [string]::Empty) {
-                return $result | ForEach-Object { $_ };
-            
+                return $result | ForEach-Object { $_ };  
             }
             elseIf ($result.Contains($lastCommand)) {
 
-                if ($parameterName.Length -eq $cursorPosition) {
+                if ($commandAst.ToString().Length -eq $cursorPosition) {
                     return $null;
                 }
         
-                return Get-AvailableOptions($cmdLn.LastCommand) |
-                Where-Object { $_ -notin $parameters } | 
+                return Get-AvailableOptions($lastCommand) |
+                Where-Object { $_ -notin $commandElements } | 
                 ForEach-Object { $_ };
             }
             else {
@@ -111,52 +97,38 @@ function Register-KubectlCompletion {
     Register-ArgumentCompleter -CommandName ("kubectl", "kubectl.exe") -ScriptBlock $GetCompletions -Native
 }
 
-function Get-LastCommand($parameterName) { 
-    
-    $cmd = $parameterName.ToString();
 
-    $flags = Select-String '\s-{1,2}[\w-]*[=?|\s+][\w1-9_:/-]*' -InputObject $cmd -AllMatches;
+function Remove-CommandFlags($parameterName) {
+    $cmd = $parameterName.Trim();
+
+    $flags = Select-String '\s-{1,2}[\w-]*[=?|\s+]?[\w1-9_:/-]*' -InputObject $cmd -AllMatches;
     $flags.Matches.Value | ForEach-Object { $cmd = $cmd.Replace($_, " ") };
 
+    return $cmd;
+}
+
+function Get-LastCommand($parameterName) { 
+    
+    $cmd = Remove-CommandFlags($parameterName);
     $options = $cmd.Trim().Split(' ');
 
     if ($options.Count -lt 2) {
         return 'root';
     }
-    else {
-        return $options[1];
-    }
-}
-
-function Get-WordToComplete($parameterName) { 
     
-    $cmd = $parameterName.ToString().Trim();
-
-    $flags = Select-String '\s-{1,2}[\w-]*[=?|\s+][\w1-9_:/-]*' -InputObject $cmd -AllMatches;
-    $flags.Matches.Value | ForEach-Object { $cmd = $cmd.Replace($_, " ") };
-
-    $startIndex = $cmd.LastIndexOf(' ');
-
-    if ($startIndex -eq -1) {
-        return [string]::Empty;
-    }
-
-    return $cmd.SubString($startIndex).Trim();
+    return $options[1];
 }
 
-function Get-Parameters($cmd) {
+function Get-Commands($parameterName) {
 
-    $cmd = $cmd.ToString().Trim();
+    $cmd = Remove-CommandFlags($parameterName);
+    $commands = $cmd.Split(' ') | Where-Object { $_ -ne [string]::Empty };
 
-    $flags = Select-String '\s-{1,2}[\w-]*[=?|\s+][\w1-9_:/-]*' -InputObject $cmd -AllMatches;
-    $flags.Matches.Value | ForEach-Object { $cmd = $cmd.Replace($_, " ") };
-
-    $parameters = $cmd.Split(' ') | Where-Object { $_ -ne [string]::Empty };
-
-    return $parameters;
+    return $commands;
 }
 
 function Get-AvailableOptions($lastCommand) {
+    
     $completions = [System.Collections.ArrayList]@();
     
     if ($lastCommand -in ("kubectl", "kubectl.exe")) {
@@ -165,7 +137,7 @@ function Get-AvailableOptions($lastCommand) {
     
     switch ($lastCommand) {
         get { 
-            return $completions += Get-KubectlGet($cmdLn.ParameterName);
+            return $completions += Get-KubectlGet;
         }
         default {
             $completions = Invoke-Expression "Get-$lastCommand" -ErrorAction Ignore;
@@ -309,8 +281,8 @@ function Get-alpha {
     $flags += ("--v=")
     $flags += ("--vmodule=")
     
-    if ($commands.Contains($cmdLn.Parameters[2])) {
-        $resource = $cmdLn.Parameters[2];
+    if ($commands.Contains($cmdLn.Commands[2])) {
+        $resource = $cmdLn.Commands[2];
         return Invoke-Expression "Get-alpha-$resource"
     }
 
@@ -534,7 +506,7 @@ function Get-apply() {
     $flags += ("--v=")
     $flags += ("--vmodule=")
     
-    if ($commands.Contains($cmdLn.Parameters[2])) {
+    if ($commands.Contains($cmdLn.Commands[2])) {
         return $flags;
     }
 
@@ -779,8 +751,8 @@ function Get-cluster-info() {
     $flags += ("--v=")
     $flags += ("--vmodule=")
     
-    if ($commands.Contains($cmdLn.Parameters[2])) {
-        $resource = $cmdLn.Parameters[2];
+    if ($commands.Contains($cmdLn.Commands[2])) {
+        $resource = $cmdLn.Commands[2];
         return Invoke-Expression "Get-config-$resource"
     }
 
@@ -888,8 +860,8 @@ function Get-config() {
          
     $commands += $flags;
 
-    if ($commands.Contains($cmdLn.Parameters[2])) {
-        $resource = $cmdLn.Parameters[2];
+    if ($commands.Contains($cmdLn.Commands[2])) {
+        $resource = $cmdLn.Commands[2];
         return Invoke-Expression "Get-config-$resource"
     }
 
@@ -1109,8 +1081,8 @@ function Get-create($parameterName) {
     $flags += ("--vmodule=")
          
     
-    if ($commands.Contains($cmdLn.Parameters[2])) {
-        $resource = $cmdLn.Parameters[2];
+    if ($commands.Contains($cmdLn.Commands[2])) {
+        $resource = $cmdLn.Commands[2];
         return Invoke-Expression "Get-create-$resource"
     }
     
@@ -2044,8 +2016,8 @@ function Get-rollout() {
     $flags += ("--v=")
     $flags += ("--vmodule=")
     
-    if ($commands.Contains($cmdLn.Parameters[2])) {
-        $resource = $cmdLn.Parameters[2];
+    if ($commands.Contains($cmdLn.Commands[2])) {
+        $resource = $cmdLn.Commands[2];
         return Invoke-Expression "Get-rollout-$resource"
     }
     
@@ -2235,8 +2207,8 @@ function Get-set() {
     $flags += ("--v=")
     $flags += ("--vmodule=")     
     
-    if ($commands.Contains($cmdLn.Parameters[2])) {
-        $resource = $cmdLn.Parameters[2];
+    if ($commands.Contains($cmdLn.Commands[2])) {
+        $resource = $cmdLn.Commands[2];
         return Invoke-Expression "Get-set-$resource"
     }
     
@@ -2336,8 +2308,8 @@ function Get-top() {
     $flags += ("--v=")
     $flags += ("--vmodule=")
          
-    if ($commands.Contains($cmdLn.Parameters[2])) {
-        $resource = $cmdLn.Parameters[2];
+    if ($commands.Contains($cmdLn.Commands[2])) {
+        $resource = $cmdLn.Commands[2];
         return Invoke-Expression "Get-top-$resource"
     }
 
@@ -2491,7 +2463,7 @@ function Get-wait() {
     return $commands;
 }
 
-function Get-KubectlGet($parameterName) {
+function Get-KubectlGet() {
     
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@()
@@ -2556,10 +2528,15 @@ function Get-KubectlGet($parameterName) {
     $flags += ("--vmodule=")
 
     $commands += Get-CommonApiResources;
-    $parameters = Get-Parameters($cmdLn.ParameterName);
-    if ($commands.Contains($parameters[2])) {
+    
+    if ($commands.Contains($cmdLn.Commands[2]) ) {
+
+        if ($cmdLn.WordToComplete -eq $cmdLn.Commands[2]) {
+            return $null;
+        }
         return $flags;
     }
+    
 
     $commands += $flags;
     return $commands;
@@ -4465,7 +4442,7 @@ function Get-create-secret() {
     $flags += ("--vmodule=")
 
     
-    if ($commands.Contains($cmdLn.Parameters[3])) {
+    if ($commands.Contains($cmdLn.Commands[3])) {
         return $flags;    
     }
     
@@ -4828,7 +4805,7 @@ function Get-rollout-history() {
     $nouns += ("deployment")
     $nouns += ("statefulset")
     
-    if ($nouns.Contains($cmdLn.Parameters[3])) {
+    if ($nouns.Contains($cmdLn.Commands[3])) {
         $commands += $flags;
         return $commands;
     }
@@ -4888,7 +4865,7 @@ function Get-rollout-pause() {
    
     $nouns += ("deployment")
     
-    if ($nouns.Contains($cmdLn.Parameters[3])) {
+    if ($nouns.Contains($cmdLn.Commands[3])) {
         $commands += $flags;
         return $commands;
     }
@@ -4950,7 +4927,7 @@ function Get-rollout-restart() {
     $nouns += ("statefulset")
 
     
-    if ($nouns.Contains($cmdLn.Parameters[3])) {
+    if ($nouns.Contains($cmdLn.Commands[3])) {
         $commands += $flags;
         return $commands;
     }
@@ -5010,7 +4987,7 @@ function Get-rollout-resume() {
    
     $nouns += ("deployment")
     
-    if ($nouns.Contains($cmdLn.Parameters[3])) {
+    if ($nouns.Contains($cmdLn.Commands[3])) {
         $commands += $flags;
         return $commands;
     }
@@ -5073,7 +5050,7 @@ function Get-rollout-status() {
     $nouns += ("statefulset")
 
     
-    if ($nouns.Contains($cmdLn.Parameters[3])) {
+    if ($nouns.Contains($cmdLn.Commands[3])) {
         $commands += $flags;
         return $commands;
     }
@@ -5138,7 +5115,7 @@ function Get-rollout-undo() {
     $nouns += ("deployment")
     $nouns += ("statefulset")
     
-    if ($nouns.Contains($cmdLn.Parameters[3])) {
+    if ($nouns.Contains($cmdLn.Commands[3])) {
         $commands += $flags;
         return $commands;
     }
@@ -5592,5 +5569,4 @@ function Get-top-pod() {
     return $commands;
 }
 
-#Register-KubectlCompletion
 Export-ModuleMember Register-KubectlCompletion
