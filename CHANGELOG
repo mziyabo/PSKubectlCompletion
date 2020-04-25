@@ -1,0 +1,10 @@
+## 1.0.2 2020-04-25
+- Patch: Register-ArgumentCompleter now includes kubectl aliases
+
+## 1.0.1 2020-04-24
+- Code Refactoring: Removed overlapping if/else clauses, unused variables and methods
+- Fixed: Tab-completion duplicating switches
+- Fixed: Flag/switches regex
+
+## 0.0.1 2020-04-22
+- Initial release

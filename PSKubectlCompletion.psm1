@@ -1,7 +1,7 @@
 
 <#PSScriptInfo
 
-.VERSION 0.0.2
+.VERSION 1.0.2
 
 .GUID b6f70c64-13aa-4408-a83f-cebf800df2b4
 
@@ -56,8 +56,7 @@ function Register-KubectlCompletion {
             
             $matches = (Get-AvailableOptions($lastCommand)).Where( { $_ -like "$wordToComplete*" });
 
-            if ($matches.Count -eq 0) {
-             
+            if ($matches.Count -eq 0) {             
                 return Get-AvailableOptions($lastCommand) |
                 Where-Object { $_ -notin $commandElements } |
                 ForEach-Object { $_ };
@@ -66,24 +65,21 @@ function Register-KubectlCompletion {
                 return $matches |
                 Where-Object { $_.StartsWith($wordToComplete) -and $_.Split("=")[0] -notin $commandElements } |
                 ForEach-Object { $_ };
-                return $completionResults;
             }    
         }
-        else {  
-            
+        else {              
             [string[]]$result = Get-RootCompletionOptions;
             
             if ($wordToComplete -eq [string]::Empty -and $lastCommand -eq [string]::Empty) {
                 return $result | ForEach-Object { $_ };  
             }
             elseIf ($result.Contains($lastCommand)) {
-
                 if ($commandAst.ToString().Length -eq $cursorPosition) {
                     return $null;
                 }
         
                 return Get-AvailableOptions($lastCommand) |
-                Where-Object { $_ -notin $commandElements } | 
+                Where-Object { $_ -notin $commandElements -and $_.Split("=")[0] -notin $commandElements } | 
                 ForEach-Object { $_ };
             }
             else {
@@ -94,7 +90,10 @@ function Register-KubectlCompletion {
         }
     }
     
-    Register-ArgumentCompleter -CommandName ("kubectl", "kubectl.exe") -ScriptBlock $GetCompletions -Native
+    $rootCommands = ('kubectl','kubectl.exe');
+    $aliases = (get-alias).Where({$_.Definition -in $rootCommands}).Name;
+    if($aliases){$rootCommands+=$aliases}
+    Register-ArgumentCompleter -CommandName $rootCommands -ScriptBlock $GetCompletions -Native
 }
 
 
