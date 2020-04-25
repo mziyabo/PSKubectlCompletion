@@ -15,8 +15,10 @@ After registering tab-completion use Tab to complete kubectl commands.
 
 ``` powershell
 Import-Module PSKubectlCompletion
+Set-Alias k -Value kubectl
 Register-KubectlCompletion
 ```
+> Note **Set-Alias is optional**, but If setting an alias for kubectl, the Set-Alias command should be before Register-KubectlCompletion.
 
 ## Licence:
 Apache-2.0
