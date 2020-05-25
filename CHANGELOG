@@ -1,3 +1,8 @@
+## Upcoming
+- Perf: Removed empty lines
+- Enhancement: Now calling Register-KubectlCompletion on Import-Module
+- Fix: Removed completions when there are no matches
+
 ## 1.0.2 2020-04-25
 - Patch: Register-ArgumentCompleter now includes kubectl aliases
 
