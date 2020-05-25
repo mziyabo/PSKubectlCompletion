@@ -34,11 +34,11 @@ function Get-Completions() {
             return $opts | ForEach-Object { $_ };
         }
         elseIf ($opts.Contains($cast.LastCommand)) {
-            if ($cast.EndOffset -eq $cast.CursorPosition) {
+            if ($cast.EndOffset -gt $cast.CursorPosition) {
                 return $null;
             }
             return Get-AvailableOptions($cast.LastCommand) |
-            Where-Object { $_ -notin $cast.CommandElements -and $_.Split("=")[0] -notin $cast.CommandElements } |
+            Where-Object {  $_.StartsWith($cast.WordToComplete) -and $_.Split("=")[0] -notin $cast.CommandElements } |
             ForEach-Object { $_ };
         }
         else {

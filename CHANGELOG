@@ -3,6 +3,7 @@
 - Enhancement: Now calling Register-KubectlCompletion on Import-Module
 - Fix: Removed completions when there are no matches
 - Enhancement: Shortened apiresource names- removed api-group
+- Fix: Now completes -- when commands in AST lt 2
 
 ## 1.0.2 2020-04-25
 - Patch: Register-ArgumentCompleter now includes kubectl aliases
