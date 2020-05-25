@@ -21,12 +21,8 @@ function Register-KubectlCompletion {
 function Get-Completions() {
     if ($cast.Commands.Count -gt 2) {
         $availableOpts = (Get-AvailableOptions($cast.LastCommand)).Where( { $_.StartsWith($cast.WordToComplete) });
-        if ($availableOpts.Count -eq 0) {
-            return Get-AvailableOptions($cast.LastCommand) |
-            Where-Object { $_ -notin $cast.CommandElements } |
-            ForEach-Object { $_ };
-        }
-        else {
+        if (($availableOpts.Count -gt 0) 
+        {
             return $availableOpts |
             Where-Object { $_.StartsWith($cast.WordToComplete) -and $_.Split("=")[0] -notin $cast.CommandElements } |
             ForEach-Object { $_ };
