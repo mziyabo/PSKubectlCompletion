@@ -5127,3 +5127,4 @@ function Get-top-pod() {
     return $commands;
 }
 Export-ModuleMember Register-KubectlCompletion
+Register-KubectlCompletion
