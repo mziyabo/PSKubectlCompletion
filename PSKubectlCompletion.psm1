@@ -1,154 +1,89 @@
-
-<#PSScriptInfo
-
-.VERSION 1.0.2
-
-.GUID b6f70c64-13aa-4408-a83f-cebf800df2b4
-
-.AUTHOR mziyabo
-
-.COMPANYNAME
-
-.COPYRIGHT (c) mziyabo. All rights reserved.
-
-.TAGS kubectl auto-completion
-
-.LICENSEURI
-
-.PROJECTURI https://github.com/mziyabo/PSKubectlCompletion
-
-.ICONURI
-
-.EXTERNALMODULEDEPENDENCIES 
-
-.REQUIREDSCRIPTS
-
-.EXTERNALSCRIPTDEPENDENCIES
-
-.RELEASENOTES
-
-
-.PRIVATEDATA
-
-#>
-
-<# 
-
-.DESCRIPTION 
- PowerShell Core kubectl auto-completion   
-#> 
-
 function Register-KubectlCompletion {
-
-    [scriptblock]$GetCompletions = {
+    [scriptblock]$ArgumentCompleter = {
         param($wordToComplete, $commandAst, $cursorPosition)
-             
-        $commandElements = $commandAst.CommandElements | ForEach-Object { $_.Extent.ToString().Split('=')[0] };
-        $lastCommand = Get-LastCommand($commandAst.ToString());        
-        $commands = Get-Commands($commandAst.ToString());
-        
-        $script:cmdLn = @{
-            Commands       = $commands;
-            WordToComplete = $wordToComplete
+        $script:cast = @{
+            CursorPosition  = $cursorPosition
+            EndOffset       = $commandAst.Extent.EndOffset;
+            WordToComplete  = $wordToComplete;
+            LastCommand     = Get-LastCommand($commandAst.ToString());
+            CommandElements = $commandAst.CommandElements | ForEach-Object { $_.Extent.ToString().Split('=')[0] };
+            Commands        = Get-Commands($commandAst.ToString());
         };
-        
-        if ($commands.Count -gt 2) {
-            
-            $matches = (Get-AvailableOptions($lastCommand)).Where( { $_ -like "$wordToComplete*" });
-
-            if ($matches.Count -eq 0) {             
-                return Get-AvailableOptions($lastCommand) |
-                Where-Object { $_ -notin $commandElements } |
-                ForEach-Object { $_ };
-            }
-            else {
-                return $matches |
-                Where-Object { $_.StartsWith($wordToComplete) -and $_.Split("=")[0] -notin $commandElements } |
-                ForEach-Object { $_ };
-            }    
-        }
-        else {              
-            [string[]]$result = Get-RootCompletionOptions;
-            
-            if ($wordToComplete -eq [string]::Empty -and $lastCommand -eq [string]::Empty) {
-                return $result | ForEach-Object { $_ };  
-            }
-            elseIf ($result.Contains($lastCommand)) {
-                if ($commandAst.ToString().Length -eq $cursorPosition) {
-                    return $null;
-                }
-        
-                return Get-AvailableOptions($lastCommand) |
-                Where-Object { $_ -notin $commandElements -and $_.Split("=")[0] -notin $commandElements } | 
-                ForEach-Object { $_ };
-            }
-            else {
-                return $result |
-                Where-Object { $_.StartsWith($wordToComplete) } |
-                ForEach-Object { $_ };
-            }   
+        return Get-Completions;
+    }
+    $rootCommands = ('kubectl', 'kubectl.exe');
+    $aliases = (get-alias).Where( { $_.Definition -in $rootCommands }).Name;
+    if ($aliases) {
+        $rootCommands += $aliases
+    }
+    Register-ArgumentCompleter -CommandName $rootCommands -ScriptBlock $ArgumentCompleter -Native
+}
+function Get-Completions() {
+    if ($cast.Commands.Count -gt 2) {
+        $availableOpts = (Get-AvailableOptions($cast.LastCommand)).Where( { $_.StartsWith($cast.WordToComplete) });
+        if ($availableOpts.Count -gt 0) 
+        {
+            return $availableOpts |
+            Where-Object { $_.StartsWith($cast.WordToComplete) -and $_.Split("=")[0] -notin $cast.CommandElements } |
+            ForEach-Object { $_ };
         }
     }
-    
-    $rootCommands = ('kubectl','kubectl.exe');
-    $aliases = (get-alias).Where({$_.Definition -in $rootCommands}).Name;
-    if($aliases){$rootCommands+=$aliases}
-    Register-ArgumentCompleter -CommandName $rootCommands -ScriptBlock $GetCompletions -Native
+    else {
+        [string[]]$opts = Get-RootCompletionOptions;
+        if ($cast.WordToComplete -eq [string]::Empty -and $cast.LastCommand -eq [string]::Empty) {
+            return $opts | ForEach-Object { $_ };
+        }
+        elseIf ($opts.Contains($cast.LastCommand)) {
+            if ($cast.EndOffset -gt $cast.CursorPosition) {
+                return $null;
+            }
+            return Get-AvailableOptions($cast.LastCommand) |
+            Where-Object {  $_.StartsWith($cast.WordToComplete) -and $_.Split("=")[0] -notin $cast.CommandElements } |
+            ForEach-Object { $_ };
+        }
+        else {
+            return $opts |
+            Where-Object { $_.StartsWith($cast.WordToComplete) } |
+            ForEach-Object { $_ };
+        }
+    }
 }
-
-
 function Remove-CommandFlags($parameterName) {
     $cmd = $parameterName.Trim();
-
     $flags = Select-String '\s-{1,2}[\w-]*[=?|\s+]?[\w1-9_:/-]*' -InputObject $cmd -AllMatches;
     $flags.Matches.Value | ForEach-Object { $cmd = $cmd.Replace($_, " ") };
-
     return $cmd;
 }
-
-function Get-LastCommand($parameterName) { 
-    
+function Get-LastCommand($parameterName) {
     $cmd = Remove-CommandFlags($parameterName);
     $options = $cmd.Trim().Split(' ');
-
     if ($options.Count -lt 2) {
         return 'root';
     }
-    
     return $options[1];
 }
-
 function Get-Commands($parameterName) {
-
     $cmd = Remove-CommandFlags($parameterName);
     $commands = $cmd.Split(' ') | Where-Object { $_ -ne [string]::Empty };
-
     return $commands;
 }
-
 function Get-AvailableOptions($lastCommand) {
-    
     $completions = [System.Collections.ArrayList]@();
-    
     if ($lastCommand -in ("kubectl", "kubectl.exe")) {
         return $completions += Get-RootCompletionOptions($wordToComplete);
     }
-    
     switch ($lastCommand) {
-        get { 
+        get {
             return $completions += Get-KubectlGet;
         }
         default {
             $completions = Invoke-Expression "Get-$lastCommand" -ErrorAction Ignore;
         }
     }
-  
     return $completions;
 }
-
 function Get-KubectlCommon() {
     $flags = [System.Collections.ArrayList]@();
-    
     $flags += ("--add-dir-header")
     $flags += ("--alsologtostderr")
     $flags += ("--as=")
@@ -183,14 +118,10 @@ function Get-KubectlCommon() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-
     return $flags;
 }
-
-function Get-RootCompletionOptions() {    
-
+function Get-RootCompletionOptions() {
     $commands = [System.Collections.ArrayList]@();
-
     $commands += ("alpha")
     $commands += ("annotate")
     $commands += ("api-resources")
@@ -234,16 +165,12 @@ function Get-RootCompletionOptions() {
     $commands += ("uncordon")
     $commands += ("version")
     $commands += ("wait")
-  
     $commands += ( { Get-KubectlCommon }.Invoke());
     return $commands;
 }
-
 function Get-alpha {
-
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@();
-
     $commands += ("debug");
     $flags += ("--add-dir-header")
     $flags += ("--alsologtostderr")
@@ -279,19 +206,15 @@ function Get-alpha {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-    
-    if ($commands.Contains($cmdLn.Commands[2])) {
-        $resource = $cmdLn.Commands[2];
+    if ($commands.Contains($cast.Commands[2])) {
+        $resource = $cast.Commands[2];
         return Invoke-Expression "Get-alpha-$resource"
     }
-
     $commands += $flags;
     return $commands;
 }
-
 function Get-annotate() {
     $flags = [System.Collections.ArrayList]@()
-
     $flags += ("--all")
     $flags += ("--allow-missing-template-keys")
     $flags += ("--dry-run")
@@ -341,14 +264,11 @@ function Get-annotate() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-         
     $commands += $flags;
     return $commands;
 }
-
 function Get-api-resources() {
     $flags = [System.Collections.ArrayList]@()
-
     $flags += ("--api-group=")
     $flags += ("--cached")
     $flags += ("--namespaced")
@@ -390,14 +310,11 @@ function Get-api-resources() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-         
     $commands += $flags;
     return $commands;
 }
-
 function Get-api-versions() {
     $flags = [System.Collections.ArrayList]@()
-
     $flags += ("--add-dir-header")
     $flags += ("--alsologtostderr")
     $flags += ("--as=")
@@ -432,20 +349,15 @@ function Get-api-versions() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-         
     $commands += $flags;
     return $commands;
 }
-
 function Get-apply() {
-
     $commands = [System.Collections.ArrayList]@()
     $flags = [System.Collections.ArrayList]@()
-
     $commands += ("edit-last-applied")
     $commands += ("set-last-applied")
     $commands += ("view-last-applied")
-
     $flags += ("--all")
     $flags += ("--allow-missing-template-keys")
     $flags += ("--cascade")
@@ -504,18 +416,14 @@ function Get-apply() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-    
-    if ($commands.Contains($cmdLn.Commands[2])) {
+    if ($commands.Contains($cast.Commands[2])) {
         return $flags;
     }
-
     $commands += $flags;
     return $commands;
 }
-
 function Get-attach() {
     $flags = [System.Collections.ArrayList]@()
-
     $flags += ("--container=")
     $flags += ("--pod-running-timeout=")
     $flags += ("--stdin")
@@ -556,18 +464,14 @@ function Get-attach() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-         
     $commands += $flags;
     return $commands;
 }
-
 function Get-auth() {
-
     $commands = [System.Collections.ArrayList]@()
     $commands += ("can-i")
     $commands += ("reconcile")
     $flags = [System.Collections.ArrayList]@()
-
     $flags += ("--add-dir-header")
     $flags += ("--alsologtostderr")
     $flags += ("--as=")
@@ -602,14 +506,11 @@ function Get-auth() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-         
     $commands += $flags;
     return $commands;
 }
-
 function Get-autoscale() {
     $flags = [System.Collections.ArrayList]@()
-
     $flags += ("--allow-missing-template-keys")
     $flags += ("--cpu-percent=")
     $flags += ("--dry-run")
@@ -659,18 +560,14 @@ function Get-autoscale() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-                        
     $commands += $flags;
     return $commands;
 }
-
 function Get-certificate() {
-
     $commands = [System.Collections.ArrayList]@()
     $commands += ("approve")
     $commands += ("deny")
     $flags = [System.Collections.ArrayList]@()
-
     $flags += ("--add-dir-header")
     $flags += ("--alsologtostderr")
     $flags += ("--as=")
@@ -705,16 +602,13 @@ function Get-certificate() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-         
     $commands += $flags;
     return $commands;
 }
 function Get-cluster-info() {
-
     $commands = [System.Collections.ArrayList]@()
     $flags = [System.Collections.ArrayList]@()
     $commands += ("dump")
-
     $flags += ("--add-dir-header")
     $flags += ("--alsologtostderr")
     $flags += ("--as=")
@@ -749,19 +643,15 @@ function Get-cluster-info() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-    
-    if ($commands.Contains($cmdLn.Commands[2])) {
-        $resource = $cmdLn.Commands[2];
+    if ($commands.Contains($cast.Commands[2])) {
+        $resource = $cast.Commands[2];
         return Invoke-Expression "Get-config-$resource"
     }
-
     $commands += $flags;
     return $commands;
 }
-
 function Get-completion() {
     $flags = [System.Collections.ArrayList]@()
-
     $flags += ("--help")
     $flags += ("-h")
     $flags += ("--add-dir-header")
@@ -798,16 +688,12 @@ function Get-completion() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-                 
     $commands += $flags;
     return $commands;
 }
-
 function Get-config() {
-    
     $commands = [System.Collections.ArrayList]@()
     $flags = [System.Collections.ArrayList]@()
-
     $commands += ("current-context")
     $commands += ("delete-cluster")
     $commands += ("delete-context")
@@ -821,7 +707,6 @@ function Get-config() {
     $commands += ("unset")
     $commands += ("use-context")
     $commands += ("view")
-
     $flags += ("--add-dir-header")
     $flags += ("--alsologtostderr")
     $flags += ("--as=")
@@ -856,20 +741,15 @@ function Get-config() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-         
     $commands += $flags;
-
-    if ($commands.Contains($cmdLn.Commands[2])) {
-        $resource = $cmdLn.Commands[2];
+    if ($commands.Contains($cast.Commands[2])) {
+        $resource = $cast.Commands[2];
         return Invoke-Expression "Get-config-$resource"
     }
-
     return $commands;
 }
-
 function Get-convert() {
     $flags = [System.Collections.ArrayList]@()
-
     $flags += ("--allow-missing-template-keys")
     $flags += ("--filename=")
     $flags += ("--kustomize=")
@@ -914,14 +794,11 @@ function Get-convert() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-         
     $commands += $flags;
     return $commands;
 }
-
 function Get-cordon() {
     $flags = [System.Collections.ArrayList]@()
-
     $flags += ("--dry-run")
     $flags += ("--selector=")
     $flags += ("--add-dir-header")
@@ -958,14 +835,11 @@ function Get-cordon() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-         
     $commands += $flags;
     return $commands;
 }
-
 function Get-cp() {
     $flags = [System.Collections.ArrayList]@()
-
     $flags += ("--container=")
     $flags += ("--no-preserve")
     $flags += ("--add-dir-header")
@@ -1002,15 +876,11 @@ function Get-cp() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-         
     $commands += $flags;
     return $commands;
 }
-
 function Get-create($parameterName) {
-
     $commands = [System.Collections.ArrayList]@()
-
     $commands += ("clusterrole")
     $commands += ("clusterrolebinding")
     $commands += ("configmap")
@@ -1026,9 +896,7 @@ function Get-create($parameterName) {
     $commands += ("secret")
     $commands += ("service")
     $commands += ("serviceaccount")
-    
     $flags = [System.Collections.ArrayList]@()
-
     $flags += ("--allow-missing-template-keys")
     $flags += ("--dry-run")
     $flags += ("--edit")
@@ -1078,20 +946,15 @@ function Get-create($parameterName) {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-         
-    
-    if ($commands.Contains($cmdLn.Commands[2])) {
-        $resource = $cmdLn.Commands[2];
+    if ($commands.Contains($cast.Commands[2])) {
+        $resource = $cast.Commands[2];
         return Invoke-Expression "Get-create-$resource"
     }
-    
     $commands += $flags;
     return $commands;
 }
-
 function Get-delete() {
     $flags = [System.Collections.ArrayList]@()
-
     $flags += ("--all")
     $flags += ("--all-namespaces")
     $flags += ("-A")
@@ -1145,14 +1008,11 @@ function Get-delete() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-         
     $commands += $flags;
     return $commands;
 }
-
 function Get-describe() {
     $flags = [System.Collections.ArrayList]@()
-
     $flags += ("--all-namespaces")
     $flags += ("-A")
     $flags += ("--filename=")
@@ -1195,14 +1055,11 @@ function Get-describe() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-         
     $commands += $flags;
     return $commands;
 }
-
 function Get-diff() {
     $flags = [System.Collections.ArrayList]@()
-
     $flags += ("--field-manager=")
     $flags += ("--filename=")
     $flags += ("--force-conflicts")
@@ -1244,14 +1101,11 @@ function Get-diff() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-         
     $commands += $flags;
     return $commands;
 }
-
 function Get-drain() {
     $flags = [System.Collections.ArrayList]@()
-
     $flags += ("--delete-local-data")
     $flags += ("--disable-eviction")
     $flags += ("--dry-run")
@@ -1296,14 +1150,11 @@ function Get-drain() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-         
     $commands += $flags;
     return $commands;
 }
-
 function Get-edit() {
     $flags = [System.Collections.ArrayList]@()
-
     $flags += ("--allow-missing-template-keys")
     $flags += ("--filename=")
     $flags += ("--kustomize=")
@@ -1350,14 +1201,11 @@ function Get-edit() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-         
     $commands += $flags;
     return $commands;
 }
-
 function Get-exec() {
     $flags = [System.Collections.ArrayList]@()
-
     $flags += ("--container=")
     $flags += ("--filename=")
     $flags += ("--pod-running-timeout=")
@@ -1399,14 +1247,11 @@ function Get-exec() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-         
     $commands += $flags;
     return $commands;
 }
-
 function Get-explain() {
     $flags = [System.Collections.ArrayList]@()
-
     $flags += ("--api-version=")
     $flags += ("--recursive")
     $flags += ("--add-dir-header")
@@ -1443,14 +1288,11 @@ function Get-explain() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-         
     $commands += $flags;
     return $commands;
 }
-
 function Get-expose() {
     $flags = [System.Collections.ArrayList]@()
-
     $flags += ("--allow-missing-template-keys")
     $flags += ("--cluster-ip=")
     $flags += ("--dry-run")
@@ -1508,14 +1350,11 @@ function Get-expose() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-                             
     $commands += $flags;
     return $commands;
 }
-
 function Get-kustomize() {
     $flags = [System.Collections.ArrayList]@()
-
     $flags += ("--add-dir-header")
     $flags += ("--alsologtostderr")
     $flags += ("--as=")
@@ -1550,14 +1389,11 @@ function Get-kustomize() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-         
     $commands += $flags;
     return $commands;
 }
-
 function Get-label() {
     $flags = [System.Collections.ArrayList]@()
-
     $flags += ("--all")
     $flags += ("--allow-missing-template-keys")
     $flags += ("--dry-run")
@@ -1608,14 +1444,11 @@ function Get-label() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-         
     $commands += $flags;
     return $commands;
 }
-
 function Get-logs() {
     $flags = [System.Collections.ArrayList]@()
-
     $flags += ("--all-containers")
     $flags += ("--container=")
     $flags += ("--follow")
@@ -1667,14 +1500,11 @@ function Get-logs() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-         
     $commands += $flags;
     return $commands;
 }
-
 function Get-options() {
     $flags = [System.Collections.ArrayList]@()
-
     $flags += ("--add-dir-header")
     $flags += ("--alsologtostderr")
     $flags += ("--as=")
@@ -1709,13 +1539,11 @@ function Get-options() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-         
     $commands += $flags;
     return $commands;
 }
 function Get-patch() {
     $flags = [System.Collections.ArrayList]@()
-
     $flags += ("--allow-missing-template-keys")
     $flags += ("--dry-run")
     $flags += ("--filename=")
@@ -1762,17 +1590,13 @@ function Get-patch() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-               
     $commands += $flags;
     return $commands;
 }
-
 function Get-plugin() {
-
     $commands = [System.Collections.ArrayList]@()
     $commands += ("list")
     $flags = [System.Collections.ArrayList]@()
-
     $flags += ("--add-dir-header")
     $flags += ("--alsologtostderr")
     $flags += ("--as=")
@@ -1807,14 +1631,11 @@ function Get-plugin() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-         
     $commands += $flags;
     return $commands;
 }
-
 function Get-port-forward() {
     $flags = [System.Collections.ArrayList]@()
-
     $flags += ("--address=")
     $flags += ("--pod-running-timeout=")
     $flags += ("--add-dir-header")
@@ -1851,14 +1672,11 @@ function Get-port-forward() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-         
     $commands += $flags;
     return $commands;
 }
-
 function Get-proxy() {
     $flags = [System.Collections.ArrayList]@()
-
     $flags += ("--accept-hosts=")
     $flags += ("--accept-paths=")
     $flags += ("--address=")
@@ -1905,14 +1723,11 @@ function Get-proxy() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-         
     $commands += $flags;
     return $commands;
 }
-
 function Get-replace() {
     $flags = [System.Collections.ArrayList]@()
-
     $flags += ("--allow-missing-template-keys")
     $flags += ("--cascade")
     $flags += ("--dry-run")
@@ -1963,13 +1778,10 @@ function Get-replace() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-         
     $commands += $flags;
     return $commands;
 }
-
 function Get-rollout() {
-
     $commands = [System.Collections.ArrayList]@()
     $commands += ("history")
     $commands += ("pause")
@@ -1977,9 +1789,7 @@ function Get-rollout() {
     $commands += ("resume")
     $commands += ("status")
     $commands += ("undo")
-
     $flags = [System.Collections.ArrayList]@()
-
     $flags += ("--add-dir-header")
     $flags += ("--alsologtostderr")
     $flags += ("--as=")
@@ -2014,19 +1824,15 @@ function Get-rollout() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-    
-    if ($commands.Contains($cmdLn.Commands[2])) {
-        $resource = $cmdLn.Commands[2];
+    if ($commands.Contains($cast.Commands[2])) {
+        $resource = $cast.Commands[2];
         return Invoke-Expression "Get-rollout-$resource"
     }
-    
     $commands += $flags;
     return $commands;
 }
-
 function Get-run() {
     $flags = [System.Collections.ArrayList]@()
-
     $flags += ("--allow-missing-template-keys")
     $flags += ("--attach")
     $flags += ("--cascade")
@@ -2098,14 +1904,11 @@ function Get-run() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-            
     $commands += $flags;
     return $commands;
 }
-
 function Get-scale() {
     $flags = [System.Collections.ArrayList]@()
-
     $flags += ("--all")
     $flags += ("--allow-missing-template-keys")
     $flags += ("--current-replicas=")
@@ -2154,23 +1957,18 @@ function Get-scale() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-                            
     $commands += $flags;
     return $commands;
 }
-
 function Get-set() {
-
     $commands = [System.Collections.ArrayList]@()
     $flags = [System.Collections.ArrayList]@()
-
     $commands += ("env")
     $commands += ("image")
     $commands += ("resources")
     $commands += ("selector")
     $commands += ("serviceaccount")
     $commands += ("subject")
-
     $flags += ("--add-dir-header")
     $flags += ("--alsologtostderr")
     $flags += ("--as=")
@@ -2204,20 +2002,16 @@ function Get-set() {
     $flags += ("--user=")
     $flags += ("--username=")
     $flags += ("--v=")
-    $flags += ("--vmodule=")     
-    
-    if ($commands.Contains($cmdLn.Commands[2])) {
-        $resource = $cmdLn.Commands[2];
+    $flags += ("--vmodule=")
+    if ($commands.Contains($cast.Commands[2])) {
+        $resource = $cast.Commands[2];
         return Invoke-Expression "Get-set-$resource"
     }
-    
     $commands += $flags;
     return $commands;
 }
-
 function Get-taint() {
     $flags = [System.Collections.ArrayList]@()
-
     $flags += ("--all")
     $flags += ("--allow-missing-template-keys")
     $flags += ("--dry-run")
@@ -2260,18 +2054,14 @@ function Get-taint() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-             
     $commands += $flags;
     return $commands;
 }
-
 function Get-top() {
-
     $commands = [System.Collections.ArrayList]@()
     $flags = [System.Collections.ArrayList]@()
     $commands += ("node")
     $commands += ("pod")
-
     $flags += ("--add-dir-header")
     $flags += ("--alsologtostderr")
     $flags += ("--as=")
@@ -2306,20 +2096,15 @@ function Get-top() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-         
-    if ($commands.Contains($cmdLn.Commands[2])) {
-        $resource = $cmdLn.Commands[2];
+    if ($commands.Contains($cast.Commands[2])) {
+        $resource = $cast.Commands[2];
         return Invoke-Expression "Get-top-$resource"
     }
-
     $commands += $flags;
     return $commands;
 }
-
 function Get-uncordon() {
-
     $flags = [System.Collections.ArrayList]@()
-
     $flags += ("--dry-run")
     $flags += ("--selector=")
     $flags += ("--add-dir-header")
@@ -2356,14 +2141,11 @@ function Get-uncordon() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-         
     $commands += $flags;
     return $commands;
 }
-
 function Get-version() {
     $flags = [System.Collections.ArrayList]@()
-
     $flags += ("--client")
     $flags += ("--output=")
     $flags += ("--short")
@@ -2401,14 +2183,11 @@ function Get-version() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-         
     $commands += $flags;
     return $commands;
 }
-
 function Get-wait() {
     $flags = [System.Collections.ArrayList]@()
-
     $flags += ("--all")
     $flags += ("--all-namespaces")
     $flags += ("-A")
@@ -2457,16 +2236,12 @@ function Get-wait() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-         
     $commands += $flags;
     return $commands;
 }
-
 function Get-KubectlGet() {
-    
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@()
-
     $flags += ("--all-namespaces")
     $flags += ("-A")
     $flags += ("--allow-missing-template-keys")
@@ -2525,22 +2300,16 @@ function Get-KubectlGet() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-
     $commands += Get-CommonApiResources;
-    
-    if ($commands.Contains($cmdLn.Commands[2]) ) {
-
-        if ($cmdLn.WordToComplete -eq $cmdLn.Commands[2]) {
+    if ($commands.Contains($cast.Commands[2]) ) {
+        if ($cast.WordToComplete -eq $cast.Commands[2]) {
             return $null;
         }
         return $flags;
     }
-    
-
     $commands += $flags;
     return $commands;
 }
-
 function Get-CommonApiResources {
     return (
         "bindings",
@@ -2560,53 +2329,50 @@ function Get-CommonApiResources {
         "secrets",
         "serviceaccounts",
         "services",
-        "mutatingwebhookconfigurations.admissionregistration.k8s.io",
-        "validatingwebhookconfigurations.admissionregistration.k8s.io",
-        "customresourcedefinitions.apiextensions.k8s.io",
-        "apiservices.apiregistration.k8s.io",
-        "controllerrevisions.apps",
-        "daemonsets.apps",
-        "deployments.apps",
-        "replicasets.apps",
-        "statefulsets.apps",
-        "tokenreviews.authentication.k8s.io",
-        "localsubjectaccessreviews.authorization.k8s.io",
-        "selfsubjectaccessreviews.authorization.k8s.io",
-        "selfsubjectrulesreviews.authorization.k8s.io",
-        "subjectaccessreviews.authorization.k8s.io",
-        "horizontalpodautoscalers.autoscaling",
-        "cronjobs.batch",
-        "jobs.batch",
-        "leases.coordination.k8s.io",
-        "events.events.k8s.io",
-        "daemonsets.extensions",
-        "deployments.extensions",
-        "ingresses.extensions",
-        "networkpolicies.extensions",
-        "podsecuritypolicies.extensions",
-        "replicasets.extensions",
-        "ingresses.networking.k8s.io",
-        "networkpolicies.networking.k8s.io",
-        "runtimeclasses.node.k8s.io",
-        "poddisruptionbudgets.policy",
-        "podsecuritypolicies.policy",
-        "clusterrolebindings.rbac.authorization.k8s.io",
-        "clusterroles.rbac.authorization.k8s.io",
-        "rolebindings.rbac.authorization.k8s.io",
-        "roles.rbac.authorization.k8s.io",
-        "priorityclasses.scheduling.k8s.io",
-        "csidrivers.storage.k8s.io",
-        "csinodes.storage.k8s.io",
-        "storageclasses.storage.k8s.io",
-        "volumeattachments.storage.k8s.io"
+        "mutatingwebhookconfigurations",
+        "validatingwebhookconfigurations",
+        "customresourcedefinitions",
+        "apiservices.apiregistration",
+        "controllerrevisions",
+        "daemonsets",
+        "deployments",
+        "replicasets",
+        "statefulsets",
+        "tokenreviews.authentication",
+        "localsubjectaccessreviews",
+        "selfsubjectaccessreviews",
+        "selfsubjectrulesreviews",
+        "subjectaccessreviews",
+        "horizontalpodautoscalers",
+        "cronjobs",
+        "jobs",
+        "leases",
+        "events",
+        "daemonsets",
+        "deployments",
+        "ingresses",
+        "networkpolicies",
+        "podsecuritypolicies",
+        "replicasets",
+        "ingresses",
+        "networkpolicies",
+        "runtimeclasses",
+        "poddisruptionbudgets",
+        "podsecuritypolicies",
+        "clusterrolebindings",
+        "clusterroles",
+        "rolebindings",
+        "roles",
+        "priorityclasses",
+        "csidrivers",
+        "csinodes",
+        "storageclasses",
+        "volumeattachments"
     );
 }
-
 function Get-alpha-debug() {
-
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@();
-    
     $flags += ("--arguments-only")
     $flags += ("--attach")
     $flags += ("--container=")
@@ -2653,16 +2419,12 @@ function Get-alpha-debug() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-
     $commands += $flags;
     return $commands;
 }
-
 function Get-apply-edit-last-applied() {
-
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@();
-    
     $flags += ("--allow-missing-template-keys")
     $flags += ("--filename=")
     $flags += ("--kustomize=")
@@ -2706,13 +2468,10 @@ function Get-apply-edit-last-applied() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-
     $commands += $flags;
     return $commands;
 }
-
 function Get-apply-set-last-applied() {
-
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@();
     $flags += ("--allow-missing-template-keys")
@@ -2755,16 +2514,13 @@ function Get-apply-set-last-applied() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-   
     $commands += $flags;
     return $commands;
 }
-
 function Get-apply-view-last-applied() {
-
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@();
-    $flags += ("--all") 
+    $flags += ("--all")
     $flags += ("--filename=")
     $flags += ("--kustomize=")
     $flags += ("--output=")
@@ -2805,16 +2561,12 @@ function Get-apply-view-last-applied() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-
     $commands += $flags;
     return $commands;
 }
-
 function Get-auth-can-i() {
-
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@();
-
     $flags += ("--all-namespaces")
     $flags += ("-A")
     $flags += ("--list")
@@ -2856,15 +2608,12 @@ function Get-auth-can-i() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-   
     $commands += $flags;
     return $commands;
 }
 function Get-auth-reconcile() {
-
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@();
-
     $flags += ("--allow-missing-template-keys")
     $flags += ("--dry-run")
     $flags += ("--filename=")
@@ -2909,15 +2658,12 @@ function Get-auth-reconcile() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-
     $commands += $flags;
     return $commands;
 }
 function Get-certificate-approve() {
-
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@();
-
     $flags += ("--allow-missing-template-keys")
     $flags += ("--filename=")
     $flags += ("--force")
@@ -2960,15 +2706,12 @@ function Get-certificate-approve() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-
     $commands += $flags;
     return $commands;
 }
 function Get-certificate-deny() {
-
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@();
- 
     $flags += ("--allow-missing-template-keys")
     $flags += ("--filename=")
     $flags += ("--force")
@@ -3011,15 +2754,12 @@ function Get-certificate-deny() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-
     $commands += $flags;
     return $commands;
 }
 function Get-cluster-info-dump() {
-
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@();
-
     $flags += ("--all-namespaces")
     $flags += ("-A")
     $flags += ("--allow-missing-template-keys")
@@ -3062,13 +2802,10 @@ function Get-cluster-info-dump() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-
     $commands += $flags;
     return $commands;
 }
-
 function  Get-config-current-context() {
-
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@();
     $flags += ("--add-dir-header")
@@ -3105,13 +2842,10 @@ function  Get-config-current-context() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-
     $commands += $flags;
     return $commands;
 }
-
 function  Get-config-delete-cluster() {
-
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@();
     $flags += ("--add-dir-header")
@@ -3148,16 +2882,12 @@ function  Get-config-delete-cluster() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-   
     $commands += $flags;
     return $commands;
 }
-
 function  Get-config-delete-context() {
-
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@();
-
     $flags += ("--add-dir-header")
     $flags += ("--alsologtostderr")
     $flags += ("--as=")
@@ -3192,13 +2922,10 @@ function  Get-config-delete-context() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-
     $commands += $flags;
     return $commands;
 }
-
 function  Get-config-get-clusters() {
-
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@();
     $flags += ("--add-dir-header")
@@ -3235,13 +2962,10 @@ function  Get-config-get-clusters() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-
     $commands += $flags;
     return $commands;
 }
-
 function  Get-config-get-contexts() {
-
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@();
     $flags += ("--no-headers")
@@ -3280,13 +3004,10 @@ function  Get-config-get-contexts() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-
     $commands += $flags;
     return $commands;
 }
-
 function  Get-config-rename-context() {
-
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@();
     $flags += ("--add-dir-header")
@@ -3323,13 +3044,10 @@ function  Get-config-rename-context() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-
     $commands += $flags;
     return $commands;
 }
-
 function  Get-config-set-cluster() {
-
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@();
     $flags += ("--embed-certs")
@@ -3367,13 +3085,10 @@ function  Get-config-set-cluster() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-
     $commands += $flags;
     return $commands;
 }
-
 function  Get-config-set-context() {
-
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@();
     $flags += ("--current")
@@ -3411,13 +3126,10 @@ function  Get-config-set-context() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-
     $commands += $flags;
     return $commands;
 }
-
 function  Get-config-set-credentials() {
-
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@();
     $flags += ("--auth-provider=")
@@ -3461,13 +3173,10 @@ function  Get-config-set-credentials() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-
     $commands += $flags;
     return $commands;
 }
-
 function  Get-config-unset() {
-
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@();
     $flags += ("--add-dir-header")
@@ -3504,13 +3213,10 @@ function  Get-config-unset() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-
     $commands += $flags;
     return $commands;
 }
-
 function  Get-config-use-context() {
-
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@();
     $flags += ("--add-dir-header")
@@ -3547,13 +3253,10 @@ function  Get-config-use-context() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-
     $commands += $flags;
     return $commands;
 }
-
 function  Get-config-view() {
-
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@();
     $flags += ("--allow-missing-template-keys")
@@ -3597,13 +3300,10 @@ function  Get-config-view() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-
     $commands += $flags;
     return $commands;
 }
-
 function Get-create-clusterrole() {
-
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@();
     $flags += ("--aggregation-rule=")
@@ -3650,17 +3350,13 @@ function Get-create-clusterrole() {
     $flags += ("--user=")
     $flags += ("--username=")
     $flags += ("--v=")
-    $flags += ("--vmodule=")   
-
+    $flags += ("--vmodule=")
     $commands += $flags;
     return $commands;
 }
-
 function Get-create-clusterrolebinding() {
-
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@();
-
     $flags += ("--allow-missing-template-keys")
     $flags += ("--clusterrole=")
     $flags += ("--dry-run")
@@ -3704,13 +3400,10 @@ function Get-create-clusterrolebinding() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-
     $commands += $flags;
     return $commands;
 }
-
 function Get-create-configmap() {
-
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@();
     $flags += ("--allow-missing-template-keys")
@@ -3757,13 +3450,10 @@ function Get-create-configmap() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-
     $commands += $flags;
     return $commands;
 }
-
 function Get-create-cronjob() {
-
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@();
     $flags += ("--allow-missing-template-keys")
@@ -3809,13 +3499,10 @@ function Get-create-cronjob() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-
     $commands += $flags;
     return $commands;
 }
-
 function Get-create-deployment() {
-
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@();
     $flags += ("--allow-missing-template-keys")
@@ -3859,14 +3546,10 @@ function Get-create-deployment() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-   
-    
     $commands += $flags;
     return $commands;
 }
-
 function Get-create-job() {
-
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@();
     $flags += ("--allow-missing-template-keys")
@@ -3911,13 +3594,10 @@ function Get-create-job() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-
     $commands += $flags;
     return $commands;
 }
-
 function Get-create-namespace() {
-
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@();
     $flags += ("--allow-missing-template-keys")
@@ -3960,16 +3640,12 @@ function Get-create-namespace() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-
     $commands += $flags;
     return $commands;
 }
-
 function Get-create-poddisruptionbudget() {
-
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@();
-
     $flags += ("--allow-missing-template-keys")
     $flags += ("--dry-run")
     $flags += ("--max-unavailable=")
@@ -4013,16 +3689,12 @@ function Get-create-poddisruptionbudget() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-
     $commands += $flags;
     return $commands;
 }
-
 function Get-create-priorityclass() {
-
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@();
-
     $flags += ("--allow-missing-template-keys")
     $flags += ("--description=")
     $flags += ("--dry-run")
@@ -4067,16 +3739,12 @@ function Get-create-priorityclass() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-
     $commands += $flags;
     return $commands;
 }
-
 function Get-create-quota() {
-    
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@();
-
     $flags += ("--allow-missing-template-keys")
     $flags += ("--dry-run")
     $flags += ("--hard=")
@@ -4119,16 +3787,12 @@ function Get-create-quota() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-   
     $commands += $flags;
     return $commands;
 }
-
 function Get-create-role() {
-
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@();
-
     $flags += ("--allow-missing-template-keys")
     $flags += ("--dry-run")
     $flags += ("--output=")
@@ -4172,17 +3836,12 @@ function Get-create-role() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-   
-   
     $commands += $flags;
     return $commands;
 }
-
 function Get-create-rolebinding() {
-
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@();
-
     $flags += ("--allow-missing-template-keys")
     $flags += ("--clusterrole=")
     $flags += ("--dry-run")
@@ -4227,16 +3886,12 @@ function Get-create-rolebinding() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-   
     $commands += $flags;
     return $commands;
 }
-
 function Get-create-secret-docker-registry() {
-
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@();
-
     $flags += ("--allow-missing-template-keys")
     $flags += ("--append-hash")
     $flags += ("--docker-email=")
@@ -4283,16 +3938,12 @@ function Get-create-secret-docker-registry() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-
     $commands += $flags;
     return $commands;
 }
-
 function Get-create-secret-generic() {
-
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@();
-
     $flags += ("--allow-missing-template-keys")
     $flags += ("--append-hash")
     $flags += ("--dry-run")
@@ -4338,16 +3989,12 @@ function Get-create-secret-generic() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-
     $commands += $flags;
     return $commands;
 }
-
 function Get-create-secret-tls() {
-
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@();
-
     $flags += ("--allow-missing-template-keys")
     $flags += ("--append-hash")
     $flags += ("--cert=")
@@ -4391,20 +4038,15 @@ function Get-create-secret-tls() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-
     $commands += $flags;
     return $commands;
 }
-
 function Get-create-secret() {
-
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@();
-    
     $commands += ("docker-registry")
     $commands += ("generic")
     $commands += ("tls")
-
     $flags += ("--add-dir-header")
     $flags += ("--alsologtostderr")
     $flags += ("--as=")
@@ -4439,18 +4081,13 @@ function Get-create-secret() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-
-    
-    if ($commands.Contains($cmdLn.Commands[3])) {
-        return $flags;    
+    if ($commands.Contains($cast.Commands[3])) {
+        return $flags;
     }
-    
     $commands += $flags;
     return $commands;
 }
-
 function Get-create-service-clusterip() {
-
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@();
     $flags += ("--allow-missing-template-keys")
@@ -4495,13 +4132,10 @@ function Get-create-service-clusterip() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-
     $commands += $flags;
     return $commands;
 }
-
 function Get-create-service-externalname() {
-
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@();
     $flags += ("--allow-missing-template-keys")
@@ -4546,13 +4180,10 @@ function Get-create-service-externalname() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-
     $commands += $flags;
     return $commands;
 }
-
 function Get-create-service-loadbalancer() {
-
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@();
     $flags += ("--allow-missing-template-keys")
@@ -4596,16 +4227,12 @@ function Get-create-service-loadbalancer() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-
     $commands += $flags;
     return $commands;
 }
-
 function Get-create-service-nodeport() {
-
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@();
-
     $flags += ("--allow-missing-template-keys")
     $flags += ("--dry-run")
     $flags += ("--node-port=")
@@ -4648,21 +4275,16 @@ function Get-create-service-nodeport() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-   
     $commands += $flags;
     return $commands;
 }
-
 function Get-create-service() {
-
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@();
-   
     $commands += ("clusterip")
     $commands += ("externalname")
     $commands += ("loadbalancer")
     $commands += ("nodeport")
-
     $flags += ("--add-dir-header")
     $flags += ("--alsologtostderr")
     $flags += ("--as=")
@@ -4697,13 +4319,10 @@ function Get-create-service() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-   
     $commands += $flags;
     return $commands;
 }
-
 function Get-create-serviceaccount() {
-
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@();
     $flags += ("--allow-missing-template-keys")
@@ -4746,17 +4365,13 @@ function Get-create-serviceaccount() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-   
     $commands += $flags;
     return $commands;
 }
-
 function Get-rollout-history() {
-
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@();
     $nouns = [System.Collections.ArrayList]@();
-
     $flags += ("--allow-missing-template-keys")
     $flags += ("--filename=")
     $flags += ("--kustomize=")
@@ -4799,27 +4414,21 @@ function Get-rollout-history() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-   
     $nouns += ("daemonset")
     $nouns += ("deployment")
     $nouns += ("statefulset")
-    
-    if ($nouns.Contains($cmdLn.Commands[3])) {
+    if ($nouns.Contains($cast.Commands[3])) {
         $commands += $flags;
         return $commands;
     }
-
     $commands += $nouns;
     $commands += $flags;
     return $commands;
 }
-
 function Get-rollout-pause() {
-
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@();
     $nouns = [System.Collections.ArrayList]@();
-
     $flags += ("--allow-missing-template-keys")
     $flags += ("--filename=")
     $flags += ("--kustomize=")
@@ -4861,21 +4470,16 @@ function Get-rollout-pause() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-   
     $nouns += ("deployment")
-    
-    if ($nouns.Contains($cmdLn.Commands[3])) {
+    if ($nouns.Contains($cast.Commands[3])) {
         $commands += $flags;
         return $commands;
     }
-
     $commands += $nouns;
     $commands += $flags;
     return $commands;
 }
-
 function Get-rollout-restart() {
-
     $commands = [System.Collections.ArrayList]@();
     $nouns = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@();
@@ -4920,28 +4524,21 @@ function Get-rollout-restart() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-   
     $nouns += ("daemonset")
     $nouns += ("deployment")
     $nouns += ("statefulset")
-
-    
-    if ($nouns.Contains($cmdLn.Commands[3])) {
+    if ($nouns.Contains($cast.Commands[3])) {
         $commands += $flags;
         return $commands;
     }
-
     $commands += $nouns;
     $commands += $flags;
     return $commands;
 }
-
 function Get-rollout-resume() {
-
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@();
     $nouns = [System.Collections.ArrayList]@();
-
     $flags += ("--allow-missing-template-keys")
     $flags += ("--filename=")
     $flags += ("--kustomize=")
@@ -4982,22 +4579,17 @@ function Get-rollout-resume() {
     $flags += ("--user=")
     $flags += ("--username=")
     $flags += ("--v=")
-    $flags += ("--vmodule=")   
-   
+    $flags += ("--vmodule=")
     $nouns += ("deployment")
-    
-    if ($nouns.Contains($cmdLn.Commands[3])) {
+    if ($nouns.Contains($cast.Commands[3])) {
         $commands += $flags;
         return $commands;
     }
-
     $commands += $nouns;
     $commands += $flags;
     return $commands;
 }
-
 function Get-rollout-status() {
-
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@();
     $nouns = [System.Collections.ArrayList]@();
@@ -5043,29 +4635,21 @@ function Get-rollout-status() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-   
     $nouns += ("daemonset")
     $nouns += ("deployment")
     $nouns += ("statefulset")
-
-    
-    if ($nouns.Contains($cmdLn.Commands[3])) {
+    if ($nouns.Contains($cast.Commands[3])) {
         $commands += $flags;
         return $commands;
     }
-    
     $commands += $flags;
     $commands += $nouns;
-    
     return $commands;
 }
-
 function Get-rollout-undo() {
-
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@();
     $nouns = [System.Collections.ArrayList]@();
-
     $flags += ("--allow-missing-template-keys")
     $flags += ("--dry-run")
     $flags += ("--filename=")
@@ -5109,27 +4693,20 @@ function Get-rollout-undo() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-    
     $nouns += ("daemonset")
     $nouns += ("deployment")
     $nouns += ("statefulset")
-    
-    if ($nouns.Contains($cmdLn.Commands[3])) {
+    if ($nouns.Contains($cast.Commands[3])) {
         $commands += $flags;
         return $commands;
     }
-
     $commands += $nouns;
     $commands += $flags;
-
     return $commands;
 }
-
 function Get-set-env() {
-
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@();
-
     $flags += ("--all")
     $flags += ("--allow-missing-template-keys")
     $flags += ("--containers=")
@@ -5183,13 +4760,10 @@ function Get-set-env() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-
     $commands += $flags;
     return $commands;
 }
-
 function Get-set-image() {
-
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@();
     $flags += ("--all")
@@ -5238,13 +4812,10 @@ function Get-set-image() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-
     $commands += $flags;
     return $commands;
 }
-
 function Get-set-resources() {
-
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@();
     $flags += ("--all")
@@ -5296,13 +4867,10 @@ function Get-set-resources() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-
     $commands += $flags;
     return $commands;
 }
-
 function Get-set-selector() {
-
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@();
     $flags += ("--all")
@@ -5350,13 +4918,10 @@ function Get-set-selector() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-
     $commands += $flags;
     return $commands;
 }
-
 function Get-set-serviceaccount() {
-
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@();
     $flags += ("--all")
@@ -5404,13 +4969,10 @@ function Get-set-serviceaccount() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-
     $commands += $flags;
     return $commands;
 }
-
 function Get-set-subject() {
-
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@();
     $flags += ("--all")
@@ -5460,13 +5022,10 @@ function Get-set-subject() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-
     $commands += $flags;
     return $commands;
 }
-
 function Get-top-node() {
-
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@();
     $flags += ("--heapster-namespace=")
@@ -5510,13 +5069,10 @@ function Get-top-node() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-
     $commands += $flags;
     return $commands;
 }
-
 function Get-top-pod() {
-
     $commands = [System.Collections.ArrayList]@();
     $flags = [System.Collections.ArrayList]@();
     $flags += ("--all-namespaces")
@@ -5563,9 +5119,8 @@ function Get-top-pod() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-   
     $commands += $flags;
     return $commands;
 }
-
 Export-ModuleMember Register-KubectlCompletion
+Register-KubectlCompletion
