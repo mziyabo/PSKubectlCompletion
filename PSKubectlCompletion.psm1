@@ -101,7 +101,7 @@ function Get-Kubectl-Config($configType) {
     $template = "{{ range .$configType }}{{ .name }} {{ end }}"
     $resources = Invoke-Expression "$kubectl config -o template --template=""$template"" view" -ErrorAction Ignore;
     if ($resources.Length -gt 0) {
-        $completions += $resources.split();
+        $completions += $resources.trim().split();
     }
     return $completions;
 }
