@@ -91,7 +91,7 @@ function Get-Kubectl-Resource($resourceType) {
     $template = "{{range .items}}{{.metadata.name}} {{end}}"
     $resources = Invoke-Expression "$kubectl get $resourceType --template ""$template""" -ErrorAction Ignore;
     if ($resources.Length -gt 0) {
-        $completions += $resources.split();
+        $completions += $resources.trim().split();
     }
     return $completions;
 }
