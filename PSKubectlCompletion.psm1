@@ -8,6 +8,7 @@ function Register-KubectlCompletion {
             LastCommand     = Get-LastCommand($commandAst.ToString());
             CommandElements = $commandAst.CommandElements | ForEach-Object { $_.Extent.ToString().Split('=')[0] };
             Commands        = Get-Commands($commandAst.ToString());
+            ResourceFlags   = Get-Resource-Flags($commandAst.ToString());
         };
         return Get-Completions;
     }
@@ -82,6 +83,21 @@ function Get-AvailableOptions($lastCommand) {
     }
     return $completions;
 }
+function Get-Resource-Flags($commandAst) {
+    $results = "";
+    $resourceFlags = ("--kubeconfig", "--cluster", "--user", "--context", "--namespace", "--server", "-n", "-s");
+    $flags = Select-String '\s-{1,2}[\w-]*[=?|\s+]?[\w1-9_:/-]*' -InputObject $commandAst.Trim() -AllMatches;
+
+    foreach ($flag in $flags.Matches.Value) {
+        foreach ($resourceFlag in $resourceFlags) {
+            if ($flag.Trim().StartsWith(($resourceFlag))) {
+                $results += $flag.Trim() + " ";
+            }
+        }
+    }
+
+    return $results.Trim();
+}
 function Get-Kubectl-Resources($resourceType) {
     if ($null -eq $resourceType) {
         $resourceType = $cast.Commands[2];
@@ -89,7 +105,7 @@ function Get-Kubectl-Resources($resourceType) {
     $completions = [System.Collections.ArrayList]@();
     $kubectl = $cast.Commands[0];
     $template = "{{range .items}}{{.metadata.name}} {{end}}"
-    $resources = Invoke-Expression "$kubectl get $resourceType --template ""$template""" -ErrorAction Ignore;
+    $resources = Invoke-Expression "$kubectl get $resourceType $($cast.ResourceFlags) --template ""$template""" -ErrorAction Ignore;
     if ($resources.Length -gt 0) {
         $completions += $resources.trim().split();
     }
