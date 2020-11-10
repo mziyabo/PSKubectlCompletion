@@ -82,7 +82,7 @@ function Get-AvailableOptions($lastCommand) {
     }
     return $completions;
 }
-function Get-Kubectl-Resource($resourceType) {
+function Get-Kubectl-Resources($resourceType) {
     if ($null -eq $resourceType) {
         $resourceType = $cast.Commands[2];
     }
@@ -287,8 +287,8 @@ function Get-annotate() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
+    $commands += Get-Kubectl-Resources;
     $commands += $flags;
-    $commands += Get-Kubectl-Resource;
     return $commands;
 }
 function Get-api-resources() {
@@ -488,8 +488,8 @@ function Get-attach() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
+    $commands += Get-Kubectl-Resources("pods");
     $commands += $flags;
-    $commands += Get-Kubectl-Resource("pods");
     return $commands;
 }
 function Get-auth() {
@@ -585,8 +585,8 @@ function Get-autoscale() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
+    $commands += Get-Kubectl-Resources;
     $commands += $flags;
-    $commands += Get-Kubectl-Resource;
     return $commands;
 }
 function Get-certificate() {
@@ -861,8 +861,8 @@ function Get-cordon() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
+    $commands += Get-Kubectl-Resources("nodes");
     $commands += $flags;
-    $commands += Get-Kubectl-Resource("nodes");
     return $commands;
 }
 function Get-cp() {
@@ -1035,8 +1035,8 @@ function Get-delete() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
+    $commands += Get-Kubectl-Resources;
     $commands += $flags;
-    $commands += Get-Kubectl-Resource;
     return $commands;
 }
 function Get-describe() {
@@ -1083,8 +1083,8 @@ function Get-describe() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
+    $commands += Get-Kubectl-Resources;
     $commands += $flags;
-    $commands += Get-Kubectl-Resource;
     return $commands;
 }
 function Get-diff() {
@@ -1179,8 +1179,8 @@ function Get-drain() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
+    $commands += Get-Kubectl-Resources("nodes");
     $commands += $flags;
-    $commands += Get-Kubectl-Resource("nodes");
     return $commands;
 }
 function Get-edit() {
@@ -1231,8 +1231,8 @@ function Get-edit() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
+    $commands += Get-Kubectl-Resources;
     $commands += $flags;
-    $commands += Get-Kubectl-Resource;
     return $commands;
 }
 function Get-exec() {
@@ -1278,8 +1278,8 @@ function Get-exec() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
+    $commands += Get-Kubectl-Resources("pods");
     $commands += $flags;
-    $commands += Get-Kubectl-Resource("pods");
     return $commands;
 }
 function Get-explain() {
@@ -1382,8 +1382,8 @@ function Get-expose() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
+    $commands += Get-Kubectl-Resources;
     $commands += $flags;
-    $commands += Get-Kubectl-Resource;
     return $commands;
 }
 function Get-kustomize() {
@@ -1477,8 +1477,8 @@ function Get-label() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
+    $commands += Get-Kubectl-Resources;
     $commands += $flags;
-    $commands += Get-Kubectl-Resource;
     return $commands;
 }
 function Get-logs() {
@@ -1534,8 +1534,8 @@ function Get-logs() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
+    $commands += Get-Kubectl-Resources("pods");
     $commands += $flags;
-    $commands += Get-Kubectl-Resource("pods");
     return $commands;
 }
 function Get-options() {
@@ -1625,8 +1625,8 @@ function Get-patch() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
+    $commands += Get-Kubectl-Resources;
     $commands += $flags;
-    $commands += Get-Kubectl-Resource;
     return $commands;
 }
 function Get-plugin() {
@@ -1708,8 +1708,8 @@ function Get-port-forward() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
+    $commands += Get-Kubectl-Resources("pods");
     $commands += $flags;
-    $commands += Get-Kubectl-Resource("pods");
     return $commands;
 }
 function Get-proxy() {
@@ -1994,8 +1994,8 @@ function Get-scale() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
+    $commands += Get-Kubectl-Resources;
     $commands += $flags;
-    $commands += Get-Kubectl-Resource;
     return $commands;
 }
 function Get-set() {
@@ -2092,8 +2092,8 @@ function Get-taint() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
+    $commands += Get-Kubectl-Resources;
     $commands += $flags;
-    $commands += Get-Kubectl-Resource;
     return $commands;
 }
 function Get-top() {
@@ -2180,8 +2180,8 @@ function Get-uncordon() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
+    $commands += Get-Kubectl-Resources("nodes");
     $commands += $flags;
-    $commands += Get-Kubectl-Resource("nodes");
     return $commands;
 }
 function Get-version() {
@@ -2345,8 +2345,8 @@ function Get-KubectlGet() {
         if ($cast.WordToComplete -eq $cast.Commands[2]) {
             return $null;
         }
-        $flags += Get-Kubectl-Resource;
-        return $flags;
+        $resources = Get-Kubectl-Resources;
+        return $resources += $flags;
     }
     $commands += $flags;
     return $commands;
@@ -5204,8 +5204,8 @@ function Get-top-node() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
+    $commands += Get-Kubectl-Resources("nodes");
     $commands += $flags;
-    $commands += Get-Kubectl-Resource("nodes");
     return $commands;
 }
 function Get-top-pod() {
@@ -5255,8 +5255,8 @@ function Get-top-pod() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
+    $commands += Get-Kubectl-Resources("pods");
     $commands += $flags;
-    $commands += Get-Kubectl-Resource("pods");
     return $commands;
 }
 Export-ModuleMember Register-KubectlCompletion
