@@ -303,7 +303,7 @@ function Get-annotate() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-    $commands += Get-Kubectl-Resources;
+    $commands +=  @(Get-Kubectl-Resources);
     $commands += $flags;
     return $commands;
 }
@@ -504,7 +504,7 @@ function Get-attach() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-    $commands += Get-Kubectl-Resources("pods");
+    $commands += @(Get-Kubectl-Resources("pods"));
     $commands += $flags;
     return $commands;
 }
@@ -601,7 +601,7 @@ function Get-autoscale() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-    $commands += Get-Kubectl-Resources;
+    $commands +=  @(Get-Kubectl-Resources);
     $commands += $flags;
     return $commands;
 }
@@ -877,7 +877,7 @@ function Get-cordon() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-    $commands += Get-Kubectl-Resources("nodes");
+    $commands += @(Get-Kubectl-Resources("nodes"));
     $commands += $flags;
     return $commands;
 }
@@ -1051,7 +1051,7 @@ function Get-delete() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-    $commands += Get-Kubectl-Resources;
+    $commands +=  @(Get-Kubectl-Resources);
     $commands += $flags;
     return $commands;
 }
@@ -1099,7 +1099,7 @@ function Get-describe() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-    $commands += Get-Kubectl-Resources;
+    $commands +=  @(Get-Kubectl-Resources);
     $commands += $flags;
     return $commands;
 }
@@ -1195,7 +1195,7 @@ function Get-drain() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-    $commands += Get-Kubectl-Resources("nodes");
+    $commands += @(Get-Kubectl-Resources("nodes"));
     $commands += $flags;
     return $commands;
 }
@@ -1247,7 +1247,7 @@ function Get-edit() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-    $commands += Get-Kubectl-Resources;
+    $commands +=  @(Get-Kubectl-Resources);
     $commands += $flags;
     return $commands;
 }
@@ -1294,7 +1294,7 @@ function Get-exec() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-    $commands += Get-Kubectl-Resources("pods");
+    $commands += @(Get-Kubectl-Resources("pods"));
     $commands += $flags;
     return $commands;
 }
@@ -1398,7 +1398,7 @@ function Get-expose() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-    $commands += Get-Kubectl-Resources;
+    $commands +=  @(Get-Kubectl-Resources);
     $commands += $flags;
     return $commands;
 }
@@ -1493,7 +1493,7 @@ function Get-label() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-    $commands += Get-Kubectl-Resources;
+    $commands +=  @(Get-Kubectl-Resources);
     $commands += $flags;
     return $commands;
 }
@@ -1550,7 +1550,7 @@ function Get-logs() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-    $commands += Get-Kubectl-Resources("pods");
+    $commands += @(Get-Kubectl-Resources("pods"));
     $commands += $flags;
     return $commands;
 }
@@ -1641,7 +1641,7 @@ function Get-patch() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-    $commands += Get-Kubectl-Resources;
+    $commands +=  @(Get-Kubectl-Resources);
     $commands += $flags;
     return $commands;
 }
@@ -1724,7 +1724,7 @@ function Get-port-forward() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-    $commands += Get-Kubectl-Resources("pods");
+    $commands += @(Get-Kubectl-Resources("pods"));
     $commands += $flags;
     return $commands;
 }
@@ -2010,7 +2010,7 @@ function Get-scale() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-    $commands += Get-Kubectl-Resources;
+    $commands +=  @(Get-Kubectl-Resources);
     $commands += $flags;
     return $commands;
 }
@@ -2108,7 +2108,7 @@ function Get-taint() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-    $commands += Get-Kubectl-Resources;
+    $commands +=  @(Get-Kubectl-Resources);
     $commands += $flags;
     return $commands;
 }
@@ -2196,7 +2196,7 @@ function Get-uncordon() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-    $commands += Get-Kubectl-Resources("nodes");
+    $commands += @(Get-Kubectl-Resources("nodes"));
     $commands += $flags;
     return $commands;
 }
@@ -2361,7 +2361,7 @@ function Get-KubectlGet() {
         if ($cast.WordToComplete -eq $cast.Commands[2]) {
             return $null;
         }
-        $resources = Get-Kubectl-Resources;
+        $resources =  @(Get-Kubectl-Resources);
         return $resources += $flags;
     }
     $commands += $flags;
@@ -5220,7 +5220,7 @@ function Get-top-node() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-    $commands += Get-Kubectl-Resources("nodes");
+    $commands += @(Get-Kubectl-Resources("nodes"));
     $commands += $flags;
     return $commands;
 }
@@ -5271,7 +5271,7 @@ function Get-top-pod() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-    $commands += Get-Kubectl-Resources("pods");
+    $commands += @(Get-Kubectl-Resources("pods"));
     $commands += $flags;
     return $commands;
 }
