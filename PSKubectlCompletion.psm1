@@ -303,7 +303,7 @@ function Get-annotate() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-    $commands +=  @(Get-Kubectl-Resources);
+    $commands += @(Get-Kubectl-Resources);
     $commands += $flags;
     return $commands;
 }
@@ -601,7 +601,7 @@ function Get-autoscale() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-    $commands +=  @(Get-Kubectl-Resources);
+    $commands += @(Get-Kubectl-Resources);
     $commands += $flags;
     return $commands;
 }
@@ -1051,7 +1051,7 @@ function Get-delete() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-    $commands +=  @(Get-Kubectl-Resources);
+    $commands += @(Get-Kubectl-Resources);
     $commands += $flags;
     return $commands;
 }
@@ -1099,7 +1099,7 @@ function Get-describe() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-    $commands +=  @(Get-Kubectl-Resources);
+    $commands += @(Get-Kubectl-Resources);
     $commands += $flags;
     return $commands;
 }
@@ -1247,7 +1247,7 @@ function Get-edit() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-    $commands +=  @(Get-Kubectl-Resources);
+    $commands += @(Get-Kubectl-Resources);
     $commands += $flags;
     return $commands;
 }
@@ -1398,7 +1398,7 @@ function Get-expose() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-    $commands +=  @(Get-Kubectl-Resources);
+    $commands += @(Get-Kubectl-Resources);
     $commands += $flags;
     return $commands;
 }
@@ -1493,7 +1493,7 @@ function Get-label() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-    $commands +=  @(Get-Kubectl-Resources);
+    $commands += @(Get-Kubectl-Resources);
     $commands += $flags;
     return $commands;
 }
@@ -1641,7 +1641,7 @@ function Get-patch() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-    $commands +=  @(Get-Kubectl-Resources);
+    $commands += @(Get-Kubectl-Resources);
     $commands += $flags;
     return $commands;
 }
@@ -2010,7 +2010,7 @@ function Get-scale() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-    $commands +=  @(Get-Kubectl-Resources);
+    $commands += @(Get-Kubectl-Resources);
     $commands += $flags;
     return $commands;
 }
@@ -2108,7 +2108,7 @@ function Get-taint() {
     $flags += ("--username=")
     $flags += ("--v=")
     $flags += ("--vmodule=")
-    $commands +=  @(Get-Kubectl-Resources);
+    $commands += @(Get-Kubectl-Resources);
     $commands += $flags;
     return $commands;
 }
