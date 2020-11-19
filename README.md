@@ -20,6 +20,12 @@ Register-KubectlCompletion
 ```
 > Note **Set-Alias is optional**, but If setting an alias for kubectl, the Set-Alias command should be before Register-KubectlCompletion.
 
+### Auto Import
+You can add import to your profile to avoid calling it each time you open shell:
+```powershell
+Add-Content --Path $PROFILE --Value "Import-Module PSKubectlCompletion"
+```
+
 ## Licence:
 Apache-2.0
 
