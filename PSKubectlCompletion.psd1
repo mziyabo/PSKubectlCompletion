@@ -12,7 +12,7 @@
 RootModule = 'PSKubectlCompletion.psm1'
 
 # Version number of this module.
-ModuleVersion = '1.0.3'
+ModuleVersion = '1.0.4'
 
 # Supported PSEditions
 # CompatiblePSEditions = @()
@@ -108,6 +108,9 @@ PrivateData = @{
 
         # ReleaseNotes of this module
         ReleaseNotes = '
+        ## 1.0.3 2020.11-19
+        - Enhancement: Added resource-name completion
+
         ## 1.0.3 2020.05-26
         - Perf: Removed empty lines
         - Enhancement: Now calling Register-KubectlCompletion on Import-Module
