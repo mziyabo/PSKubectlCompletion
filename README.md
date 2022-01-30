@@ -1,7 +1,5 @@
  ⛔This library is no longer actively developed. [kubectl has added PowerShell completion](https://kubernetes.io/docs/tasks/tools/included/optional-kubectl-configs-pwsh/) which you can now use. Thank you to everybody who contributed and used the project 🖖🏽.
 
-<br/>
-
 # PowerShell auto-completion for kubectl
 [![powershellgallery](https://img.shields.io/powershellgallery/v/PSKubectlCompletion.svg)](https://www.powershellgallery.com/packages/PSKubectlCompletion)
 [![downloads](https://img.shields.io/powershellgallery/dt/PSKubectlCompletion.svg?label=downloads)](https://www.powershellgallery.com/packages/PSKubectlCompletion)
